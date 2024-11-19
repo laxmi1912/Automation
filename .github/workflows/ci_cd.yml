@@ -7,6 +7,7 @@ on:
         description: "Environment to deploy (dev, uat, prd)"
         required: true
         type: choice
+        default: 'dev'
         options:
           - dev
           - uat
