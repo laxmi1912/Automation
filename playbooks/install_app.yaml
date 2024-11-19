@@ -1,0 +1,24 @@
+- name: Install application binary
+  hosts: my_vms
+  become: yes
+
+  vars:
+    nginx_url: "http://nginx.org/packages/mainline/ubuntu/pool/nginx/n/nginx/nginx_1.19.1-1~focal_amd64.deb"
+    nginx_package: "/tmp/nginx.deb"
+
+  tasks:
+      - name: Download the Nginx package
+        ansible.builtin.get_url:
+          url: "{{ nginx_url }}"
+          dest: "{{ nginx_package }}"
+          mode: '0644'
+
+      - name: Install Nginx from the downloaded package
+        apt:
+          deb: "{{ nginx_package }}"
+
+      - name: Start and enable Nginx
+        ansible.builtin.service:
+          name: nginx
+          state: started
+          enabled: yes

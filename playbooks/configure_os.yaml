@@ -1,0 +1,71 @@
+---
+- name: Configure OS settings for a Linux VM
+  hosts: all
+  become: yes
+
+  vars:
+    timezone: "UTC"
+    ssh_port: 22
+    allowed_ssh_ips:
+      - "0.0.0.0/0"  # Allow all IPs (we can replace with restricted IPs for better security)
+
+  tasks:
+    - name: Update and upgrade apt packages
+      apt:
+        update_cache: yes
+        upgrade: dist
+        cache_valid_time: 3600
+
+    - name: Install essential packages
+      apt:
+        name:
+          - curl
+          - wget
+          - git
+          - ufw
+          - htop
+        state: present
+
+    - name: Ensure UFW (firewall) is installed and enabled
+      block:
+        - name: Allow SSH connections
+          ufw:
+            rule: allow
+            name: OpenSSH
+            port: "{{ ssh_port }}"
+            proto: tcp
+            from_ip: "{{ allowed_ssh_ips | join(',') }}"
+        - name: Enable UFW
+          ufw:
+            state: enabled
+      when: ansible_facts['os_family'] == "Debian"
+
+    - name: Set custom SSH port
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?Port'
+        line: 'Port {{ ssh_port }}'
+        state: present
+
+    - name: Restart SSH service to apply changes
+      service:
+        name: ssh
+        state: restarted
+
+    - name: Create a new non-root user
+      user:
+        name: deployuser
+        state: present
+        shell: /bin/bash
+
+    - name: Add deployuser to sudoers
+      lineinfile:
+        path: /etc/sudoers
+        line: 'deployuser ALL=(ALL) NOPASSWD:ALL'
+        validate: 'visudo -cf %s'
+
+    - name: Set up authorized SSH keys for deployuser
+      authorized_key:
+        user: deployuser
+        state: present
+        key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
