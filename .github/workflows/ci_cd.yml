@@ -211,7 +211,7 @@ jobs:
 
       - name: Bump version based on input
         run: |
-          ../scripts/bumpup_version.sh ${{ github.event.inputs.version_type }}
+          ../bumpup_version.sh ${{ github.event.inputs.version_type }}
 
       - name: Push changes to Git
         run: |
