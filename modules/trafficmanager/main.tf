@@ -1,12 +1,12 @@
 
-data "azurerm_virtual_machine" "vm1" {
-  name                = "dev-eastus2-vm"
+data "azurerm_public_ip" "vm1" {
+  name                = "${var.environment}-${var.location}-publicip"
   resource_group_name = var.resource_group_name
 }
 
-data "azurerm_virtual_machine" "vm2" {
-  name                = "dev-eastus-vm"
-  resource_group_name = var.resource_group_name
+data "azurerm_public_ip" "vm2" {
+  name                = "dev-uksouth-publicip"
+  resource_group_name = "app-terraform-uk-dev"
 }
 
 locals {
@@ -14,14 +14,14 @@ locals {
     {
       name      = "primary"
       priority  = 1
-      location  = "East US"
-      target_id = data.azurerm_virtual_machine.vm1.id
+      location  = "westus2"
+      target_id = data.azurerm_public_ip.vm1.id
     },
     {
       name      = "secondary"
       priority  = 2
-      location  = "East US 2"
-      target_id = data.azurerm_virtual_machine.vm2.id
+      location  = "uksouth"
+      target_id = data.azurerm_public_ip.vm2.id
     }
   ]
 }
@@ -48,8 +48,8 @@ resource "azurerm_traffic_manager_profile" "tm" {
 resource "azurerm_traffic_manager_azure_endpoint" "endpoint" {
   for_each = { for ep in local.endpoints : ep.name => ep }
 
-  name                = random_id.server.hex
-  profile_id          = azurerm_traffic_manager_profile.tm.name
+  name                = "${var.environment}-${var.location}-trafficendpoint"
+  profile_id          = azurerm_traffic_manager_profile.tm.id
   always_serve_enabled = true
   target_resource_id  = each.value.target_id
   priority            = each.value.priority

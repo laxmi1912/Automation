@@ -15,6 +15,7 @@ resource "azurerm_public_ip" "publicip" {
   location            = var.location
   allocation_method   = "Static"
   sku                  = "Standard"
+  domain_name_label    = "${var.environment}-${var.location}-dns"
 
   tags = var.tags
 }
