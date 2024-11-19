@@ -1,9 +1,10 @@
 name: IaC Deployment Pipeline
-'on':
+
+on:
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Environment to deploy (dev, uat, prd)'
+        description: "Environment to deploy (dev, uat, prd)"
         required: true
         type: choice
         options:
@@ -11,118 +12,206 @@ name: IaC Deployment Pipeline
           - uat
           - prd
       destroy:
-        description: Do you want to destroy the infrastructure? (yes/no)
+        description: "Do you want to destroy the infrastructure? (yes/no)"
         required: true
         type: choice
         options:
-          - 'yes'
-          - 'no'
+          - yes
+          - no
+      version_type:
+        description: 'Which version to bump? (major, minor, patch)'
+        required: true
+        default: 'patch'
   push:
     branches:
       - main
+
 env:
-  TF_VERSION: 1.5.0
-  TERRAGRUNT_VERSION: v0.45.0
+  TF_VERSION: "1.5.0"
+  TERRAGRUNT_VERSION: "v0.45.0"
+
 jobs:
   validate:
     name: Validate Terraform
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: '${{ env.TF_VERSION }}'
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Install Terragrunt
+        run: |
+          curl -L https://github.com/gruntwork-io/terragrunt/releases/download/${{ env.TERRAGRUNT_VERSION }}/terragrunt_linux_amd64 -o terragrunt
+          chmod +x terragrunt
+          mv terragrunt /usr/local/bin/
+
       - name: Validate Configuration
         run: |
           cd ${{ github.event.inputs.environment }}
           terragrunt validate
+
   plan:
     name: Plan Infrastructure
     runs-on: ubuntu-latest
     needs: validate
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: '${{ env.TF_VERSION }}'
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Install Terragrunt
+        run: |
+          curl -L https://github.com/gruntwork-io/terragrunt/releases/download/${{ env.TERRAGRUNT_VERSION }}/terragrunt_linux_amd64 -o terragrunt
+          chmod +x terragrunt
+          mv terragrunt /usr/local/bin/
+
       - name: Plan Infrastructure Changes
         run: |
           cd ${{ github.event.inputs.environment }}
           terragrunt plan
+
   apply:
     name: Apply Changes to Environment
     runs-on: ubuntu-latest
     needs: plan
     environment:
-      name: '${{ github.event.inputs.environment }}'
+      name: ${{ github.event.inputs.environment }}
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: '${{ env.TF_VERSION }}'
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Install Terragrunt
+        run: |
+          curl -L https://github.com/gruntwork-io/terragrunt/releases/download/${{ env.TERRAGRUNT_VERSION }}/terragrunt_linux_amd64 -o terragrunt
+          chmod +x terragrunt
+          mv terragrunt /usr/local/bin/
+
       - name: Apply Infrastructure Changes
         run: |
           cd ${{ github.event.inputs.environment }}
           terragrunt apply --auto-approve
+
   deploy-to-uat:
     name: Deploy to UAT (Manual Approval)
     runs-on: ubuntu-latest
     needs: apply
     environment:
-      name: uat
+      name: uat # Link to the UAT environment in GitHub Actions (requires manual approval)
     if: github.event.inputs.environment == 'dev'
+
     steps:
       - uses: trstringer/manual-approval@v1
         with:
-          secret: '${{ github.TOKEN }}'
-          approvers: 'trstringer,acdunnigan'
+          secret: ${{ github.TOKEN }}
+          approvers: trstringer,acdunnigan
+
       - name: Checkout Repository
         uses: actions/checkout@v3
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: '${{ env.TF_VERSION }}'
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Install Terragrunt
+        run: |
+          curl -L https://github.com/gruntwork-io/terragrunt/releases/download/${{ env.TERRAGRUNT_VERSION }}/terragrunt_linux_amd64 -o terragrunt
+          chmod +x terragrunt
+          mv terragrunt /usr/local/bin/
+
       - name: Apply UAT Changes
         run: |
           cd uat
           terragrunt apply --auto-approve
+
   deploy-to-prd:
     name: Deploy to PRD (Manual Approval)
     runs-on: ubuntu-latest
     needs: deploy-to-uat
     environment:
-      name: prd
+      name: prd # Link to the PRD environment in GitHub Actions (requires manual approval)
     if: github.event.inputs.environment == 'uat'
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: '${{ env.TF_VERSION }}'
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Install Terragrunt
+        run: |
+          curl -L https://github.com/gruntwork-io/terragrunt/releases/download/${{ env.TERRAGRUNT_VERSION }}/terragrunt_linux_amd64 -o terragrunt
+          chmod +x terragrunt
+          mv terragrunt /usr/local/bin/
+
       - name: Apply PRD Changes
         run: |
           cd prd
           terragrunt apply --auto-approve
+
   destroy:
     name: Destroy Infrastructure (Conditional)
     runs-on: ubuntu-latest
     needs: apply
-    if: '${{ github.event.inputs.destroy == ''yes'' }}'
+    if: ${{ github.event.inputs.destroy == 'yes' }}
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: '${{ env.TF_VERSION }}'
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Install Terragrunt
+        run: |
+          curl -L https://github.com/gruntwork-io/terragrunt/releases/download/${{ env.TERRAGRUNT_VERSION }}/terragrunt_linux_amd64 -o terragrunt
+          chmod +x terragrunt
+          mv terragrunt /usr/local/bin/
+
       - name: Destroy Infrastructure
         run: |
           cd ${{ github.event.inputs.environment }}
           terragrunt destroy --auto-approve
+
+  release:
+    name: Release Infrastructure and publish Git release
+    runs-on: ubuntu-latest
+    needs: [apply, deploy-to-prd]
+    if: github.event.inputs.environment == 'prd' && github.event.inputs.destroy == 'no'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Git configuration
+        run: |
+          git config --global user.name "Your Name"
+          git config --global user.email "your-email@example.com"
+
+      - name: Bump version based on input
+        run: |
+          ../scripts/bumpup_version.sh ${{ github.event.inputs.version_type }}
+
+      - name: Push changes to Git
+        run: |
+          git push origin --tags
