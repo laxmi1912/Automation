@@ -13,9 +13,22 @@
           dest: "{{ nginx_package }}"
           mode: '0644'
 
-      - name: Install Nginx from the downloaded package
-        apt:
-          deb: "{{ nginx_package }}"
+      - name: Install the Nginx package
+        ansible.builtin.command:
+          cmd: dpkg -i {{ nginx_package }}
+        register: install_output
+        ignore_errors: yes
+
+      - name: Fix missing dependencies if needed
+        ansible.builtin.apt:
+          update_cache: yes
+          state: present
+        when: install_output.rc != 0
+
+      - name: Ensure Nginx is installed
+        ansible.builtin.command:
+          cmd: dpkg -i {{ nginx_package }}
+        when: install_output.rc != 0
 
       - name: Start and enable Nginx
         ansible.builtin.service:

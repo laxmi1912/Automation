@@ -1,7 +1,6 @@
 ---
 - name: Configure OS settings for a Linux VM
   hosts: all
-  become: yes
 
   vars:
     timezone: "UTC"
@@ -15,6 +14,12 @@
         update_cache: yes
         upgrade: dist
         cache_valid_time: 3600
+
+    - name: Set the system timezone
+      ansible.builtin.command:
+        cmd: timedatectl set-timezone {{ timezone }}
+      register: timezone_output
+      changed_when: "'Time zone' in timezone_output.stdout"
 
     - name: Install essential packages
       apt:
@@ -39,6 +44,13 @@
           ufw:
             state: enabled
       when: ansible_facts['os_family'] == "Debian"
+
+    - name: Disable root login via SSH
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^PermitRootLogin'
+        line: 'PermitRootLogin no'
+        state: present
 
     - name: Set custom SSH port
       lineinfile:
